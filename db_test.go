@@ -2,10 +2,10 @@ package logic_kv
 
 import (
 	"fmt"
+	"github.com/guanghuihuang88/logicKV/utils"
 	sqle "github.com/src-d/go-mysql-server"
 	"github.com/src-d/go-mysql-server/sql/parse"
 	"github.com/stretchr/testify/assert"
-	"logicKV/utils"
 	"os"
 	"testing"
 )

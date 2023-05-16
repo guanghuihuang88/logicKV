@@ -1,8 +1,8 @@
 package logic_kv
 
 import (
+	"github.com/guanghuihuang88/logicKV/data"
 	"io"
-	"logicKV/data"
 	"os"
 	"path"
 	"path/filepath"

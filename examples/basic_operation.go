@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	bitcask "logicKV"
+	logicKV "github.com/guanghuihuang88/logicKV"
 )
 
 func main() {
-	opts := bitcask.DefaultOptions
+	opts := logicKV.DefaultOptions
 	opts.DirPath = "/tmp/bitcask-go"
-	db, err := bitcask.Open(opts)
+	db, err := logicKV.Open(opts)
 	if err != nil {
 		panic(err)
 	}

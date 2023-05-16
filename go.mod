@@ -1,4 +1,4 @@
-module logicKV
+module github.com/guanghuihuang88/logicKV
 
 
 go 1.18

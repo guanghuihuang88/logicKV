@@ -1,8 +1,8 @@
 package index
 
 import (
+	"github.com/guanghuihuang88/logicKV/data"
 	"github.com/stretchr/testify/assert"
-	"logicKV/data"
 	"testing"
 )
 

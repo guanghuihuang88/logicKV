@@ -3,9 +3,9 @@ package logic_kv
 import (
 	"bytes"
 	"errors"
+	"github.com/guanghuihuang88/logicKV/data"
+	"github.com/guanghuihuang88/logicKV/index"
 	"io"
-	"logicKV/data"
-	"logicKV/index"
 	"os"
 	"path/filepath"
 	"sort"

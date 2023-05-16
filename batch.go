@@ -2,7 +2,7 @@ package logic_kv
 
 import (
 	"encoding/binary"
-	"logicKV/data"
+	"github.com/guanghuihuang88/logicKV/data"
 	"sync"
 	"sync/atomic"
 )

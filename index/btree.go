@@ -3,7 +3,7 @@ package index
 import (
 	"bytes"
 	"github.com/google/btree"
-	"logicKV/data"
+	"github.com/guanghuihuang88/logicKV/data"
 	"sort"
 	"sync"
 )

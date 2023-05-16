@@ -3,9 +3,9 @@ package data
 import (
 	"errors"
 	"fmt"
+	"github.com/guanghuihuang88/logicKV/fio"
 	"hash/crc32"
 	"io"
-	"logicKV/fio"
 	"path/filepath"
 )
 
