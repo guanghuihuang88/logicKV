@@ -5,7 +5,7 @@ import (
 	sqle "github.com/src-d/go-mysql-server"
 	"github.com/src-d/go-mysql-server/sql/parse"
 	"github.com/stretchr/testify/assert"
-	"logic-kv/utils"
+	"logicKV/utils"
 	"os"
 	"testing"
 )

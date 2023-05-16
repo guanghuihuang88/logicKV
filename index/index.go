@@ -3,7 +3,7 @@ package index
 import (
 	"bytes"
 	"github.com/google/btree"
-	"logic-kv/data"
+	"logicKV/data"
 )
 
 type Indexer interface {

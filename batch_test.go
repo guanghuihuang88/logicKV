@@ -2,7 +2,7 @@ package logic_kv
 
 import (
 	"github.com/stretchr/testify/assert"
-	"logic-kv/utils"
+	"logicKV/utils"
 	"os"
 	"testing"
 )

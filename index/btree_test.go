@@ -2,7 +2,7 @@ package index
 
 import (
 	"github.com/stretchr/testify/assert"
-	"logic-kv/data"
+	"logicKV/data"
 	"testing"
 )
 

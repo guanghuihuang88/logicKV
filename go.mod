@@ -1,4 +1,4 @@
-module logic-kv
+module logicKV
 
 
 go 1.18

@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	bitcask "logic-kv"
+	bitcask "logicKV"
 )
 
 func main() {
