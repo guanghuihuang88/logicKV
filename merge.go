@@ -241,7 +241,7 @@ func (db *DB) loadIndexFromHintFile() error {
 	}
 
 	// 打开 hint 索引文件
-	hintFile, err := data.OpenHintFile(hintFilePath)
+	hintFile, err := data.OpenHintFile(db.options.DirPath)
 	if err != nil {
 		return err
 	}
