@@ -399,13 +399,6 @@ func (db *DB) Close() error {
 	return nil
 }
 
-// DB 索引迭代器
-type dbIterator struct {
-	db        *DB
-	indexIter index.Iterator
-	options   IteratorOptions
-}
-
 // ListKeys 获取数据库中所有的 key
 func (db *DB) ListKeys() [][]byte {
 	iterator := db.index.Iterator(false)
@@ -435,11 +428,11 @@ func (db *DB) Fold(fn func(key []byte, value []byte) bool) error {
 	return nil
 }
 
-func (db *DB) Iterator(options IteratorOptions) *dbIterator {
+func (db *DB) Iterator(options IteratorOptions) *DbIterator {
 	if db == nil {
 		return nil
 	}
-	return &dbIterator{
+	return &DbIterator{
 		db:        db,
 		indexIter: db.index.Iterator(options.Reverse),
 		options:   options,
@@ -447,36 +440,43 @@ func (db *DB) Iterator(options IteratorOptions) *dbIterator {
 
 }
 
+// DbIterator 索引迭代器
+type DbIterator struct {
+	db        *DB
+	indexIter index.Iterator
+	options   IteratorOptions
+}
+
 // Rewind 重新回到迭代器的起点
-func (iter *dbIterator) Rewind() {
+func (iter *DbIterator) Rewind() {
 	iter.indexIter.Rewind()
 	iter.skipToPrix()
 }
 
 // Seek 根据传入的 key 查找到第一个 >=/<= key 的目标 key，从这个 key 开始遍历
-func (iter *dbIterator) Seek(key []byte) {
+func (iter *DbIterator) Seek(key []byte) {
 	iter.indexIter.Seek(key)
 	iter.skipToPrix()
 }
 
 // Next 跳转到下一个 key
-func (iter *dbIterator) Next() {
+func (iter *DbIterator) Next() {
 	iter.indexIter.Next()
 	iter.skipToPrix()
 }
 
 // Valid 是否有效，即是否遍历完所有的 key，用于退出遍历
-func (iter *dbIterator) Valid() bool {
+func (iter *DbIterator) Valid() bool {
 	return iter.indexIter.Valid()
 }
 
 // Key 当前遍历位置的 key 数据
-func (iter *dbIterator) Key() []byte {
+func (iter *DbIterator) Key() []byte {
 	return iter.indexIter.Key()
 }
 
 // Value 当前遍历位置的 value 数据
-func (iter *dbIterator) Value() ([]byte, error) {
+func (iter *DbIterator) Value() ([]byte, error) {
 	logRecordPos := iter.indexIter.Value()
 	iter.db.mu.RLock()
 	defer iter.db.mu.RUnlock()
@@ -485,12 +485,12 @@ func (iter *dbIterator) Value() ([]byte, error) {
 }
 
 // Close 关闭迭代器，释放资源
-func (iter *dbIterator) Close() {
+func (iter *DbIterator) Close() {
 	iter.indexIter.Close()
 }
 
 // skipToPrix 调到指定前缀位置
-func (iter *dbIterator) skipToPrix() {
+func (iter *DbIterator) skipToPrix() {
 	prefix := iter.options.Prefix
 	if len(prefix) == 0 {
 		return

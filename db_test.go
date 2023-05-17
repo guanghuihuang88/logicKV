@@ -1,10 +1,7 @@
 package logic_kv
 
 import (
-	"fmt"
 	"github.com/guanghuihuang88/logicKV/utils"
-	sqle "github.com/src-d/go-mysql-server"
-	"github.com/src-d/go-mysql-server/sql/parse"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
@@ -386,28 +383,4 @@ func TestDB_Iterator_Multi_Values(t *testing.T) {
 	for iter3.Rewind(); iter3.Valid(); iter3.Next() {
 		assert.NotNil(t, iter3.Key())
 	}
-}
-
-func TestDB_ulti_Values(t *testing.T) {
-
-	// 创建一个简单的内存数据库引擎
-	engine := sqle.NewDefault()
-
-	// 解析SQL语句
-	query := "SELECT * FROM mytable WHERE id > 10"
-	parsedQuery, err := parse.Parse(nil, query)
-	if err != nil {
-		fmt.Printf("Error parsing SQL: %s\n", err)
-		return
-	}
-
-	// 将解析后的SQL转换为执行算子
-	executionPlan, err := engine.Analyzer.Analyze(nil, parsedQuery)
-	if err != nil {
-		fmt.Printf("Error analyzing SQL: %s\n", err)
-		return
-	}
-
-	// 打印执行算子
-	fmt.Printf("Execution plan: %s\n", executionPlan.String())
 }
