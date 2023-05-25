@@ -31,16 +31,20 @@ const (
 
 	// ART 自适应基数树索引
 	ART
+
+	// BPTree B+树（磁盘索引、将索引存储在磁盘上，需要一个文件路径作为参数）
+	BPTree
 )
 
 // NewIndexer 根据类型初始化索引
-func NewIndexer(typ IndexType) Indexer {
+func NewIndexer(typ IndexType, dirPath string, syncWrites bool) Indexer {
 	switch typ {
 	case Btree:
 		return NewBTree()
 	case ART:
-		// TODO
 		return NewArt()
+	case BPTree:
+		return NewBPlusTree(dirPath, syncWrites)
 	default:
 		panic("unsupported idnex type")
 	}

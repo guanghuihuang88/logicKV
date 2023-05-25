@@ -36,6 +36,9 @@ const (
 
 	// ART 自适应基数树索引
 	ART
+
+	// BPTree B+树（磁盘索引、将索引存储在磁盘上，需要一个文件路径作为参数）
+	BPTree
 )
 
 var DefaultOptions = Options{
