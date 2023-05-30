@@ -21,6 +21,9 @@ type Indexer interface {
 
 	// Size 索引长度，key 个数
 	Size() int
+
+	// Close 关闭索引
+	Close() error
 }
 
 type IndexType = int8

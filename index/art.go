@@ -63,6 +63,11 @@ func (art *AdaptiveRadixTree) Size() int {
 	return art.tree.Size()
 }
 
+// Close 关闭索引
+func (art *AdaptiveRadixTree) Close() error {
+	return nil
+}
+
 // Art 索引迭代器
 type artIterator struct {
 	curIndex int

@@ -14,16 +14,20 @@ import (
 	"sync"
 )
 
+const seqNoKey = "seq.no"
+
 // DB bitcask 存储引擎实例
 type DB struct {
-	options    Options
-	mu         *sync.RWMutex
-	fileIds    []int                     // 文件id的集合，只有在加载索引的时候会用到
-	activeFile *data.DataFile            // 当前活跃的数据文件，可以用于写入
-	olderFiles map[uint32]*data.DataFile // 旧的数据文件，只能用于读
-	index      index.Indexer             // 内存索引
-	seqNo      uint64                    // 事务id
-	isMerging  bool                      // 是否正在进行Merge
+	options        Options
+	mu             *sync.RWMutex
+	fileIds        []int                     // 文件id的集合，只有在加载索引的时候会用到
+	activeFile     *data.DataFile            // 当前活跃的数据文件，可以用于写入
+	olderFiles     map[uint32]*data.DataFile // 旧的数据文件，只能用于读
+	index          index.Indexer             // 内存索引
+	seqNo          uint64                    // 事务id
+	isMerging      bool                      // 是否正在进行Merge
+	seqNoFileExist bool                      // 存储事务序列号的文件是否存在
+	isInitial      bool                      // 是否是第一次初始化此数据目录
 }
 
 // Open 打开 bitcask 存储引擎实例
@@ -33,11 +37,20 @@ func Open(options Options) (*DB, error) {
 		return nil, err
 	}
 
+	var isInitial bool
 	// 判断数据目录是否存在，如果不存在，则创建这个目录
 	if _, err := os.Stat(options.DirPath); os.IsNotExist(err) {
+		isInitial = true
 		if err := os.MkdirAll(options.DirPath, os.ModePerm); err != nil {
 			return nil, err
 		}
+	}
+	entries, err := os.ReadDir(options.DirPath)
+	if err != nil {
+		return nil, err
+	}
+	if len(entries) == 0 {
+		isInitial = true
 	}
 
 	// 初始化 DB 实例结构体
@@ -46,15 +59,11 @@ func Open(options Options) (*DB, error) {
 		mu:         new(sync.RWMutex),
 		olderFiles: make(map[uint32]*data.DataFile),
 		index:      index.NewIndexer(options.IndexType, options.DirPath, options.SyncWrites),
+		isInitial:  isInitial,
 	}
 
 	// 加载 merge 数据目录
 	if err := db.loadMergeFiles(); err != nil {
-		return nil, err
-	}
-
-	// 从 hint 索引文件中加载索引
-	if err := db.loadIndexFromHintFile(); err != nil {
 		return nil, err
 	}
 
@@ -63,9 +72,27 @@ func Open(options Options) (*DB, error) {
 		return nil, err
 	}
 
-	// 加载索引
-	if err := db.loadIndexFromDataFiles(); err != nil {
-		return nil, err
+	if options.IndexType != BPTree {
+		// 从 hint 索引文件中加载索引
+		if err := db.loadIndexFromHintFile(); err != nil {
+			return nil, err
+		}
+
+		// 从数据文件中加载索引
+		if err := db.loadIndexFromDataFiles(); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := db.loadSeqNo(); err != nil {
+			return nil, err
+		}
+		if db.activeFile != nil {
+			size, err := db.activeFile.IoManager.Size()
+			if err != nil {
+				return nil, err
+			}
+			db.activeFile.WriteOffset = size
+		}
 	}
 
 	return db, nil
@@ -384,12 +411,39 @@ func (db *DB) Sync() error {
 }
 
 func (db *DB) Close() error {
+	if db.activeFile == nil {
+		return nil
+	}
 	db.mu.RLock()
 	db.mu.RUnlock()
-	err := db.activeFile.Close()
+
+	db.index.Close()
+
+	// 保存当前事务序列号
+	seqNoFile, err := data.OpenSeqNoFile(db.options.DirPath)
 	if err != nil {
 		return err
 	}
+	record := &data.LogRecord{
+		Key:   []byte(seqNoKey),
+		Value: []byte(strconv.FormatUint(db.seqNo, 10)),
+		Type:  0,
+	}
+	encodeSeqNoRecord, _ := data.EncodeLogRecord(record)
+	if err := seqNoFile.Write(encodeSeqNoRecord); err != nil {
+		return err
+	}
+	if err = seqNoFile.Sync(); err != nil {
+		return err
+	}
+
+	// 关闭当前活跃文件
+	err = db.activeFile.Close()
+	if err != nil {
+		return err
+	}
+
+	// 关闭旧的数据文件
 	for _, dataFile := range db.olderFiles {
 		err := dataFile.Close()
 		if err != nil {
@@ -402,6 +456,7 @@ func (db *DB) Close() error {
 // ListKeys 获取数据库中所有的 key
 func (db *DB) ListKeys() [][]byte {
 	iterator := db.index.Iterator(false)
+	defer iterator.Close()
 	list := make([][]byte, db.index.Size())
 	idx := 0
 	for iterator.Rewind(); iterator.Valid(); iterator.Next() {
@@ -416,6 +471,7 @@ func (db *DB) Fold(fn func(key []byte, value []byte) bool) error {
 	db.mu.RLock()
 	db.mu.RUnlock()
 	iterator := db.index.Iterator(false)
+	defer iterator.Close()
 	for iterator.Rewind(); iterator.Valid(); iterator.Next() {
 		value, err := db.getValueByPos(iterator.Value())
 		if err != nil {
@@ -501,4 +557,25 @@ func (iter *DbIterator) skipToPrix() {
 			break
 		}
 	}
+}
+func (db *DB) loadSeqNo() error {
+	filename := filepath.Join(db.options.DirPath, data.SeqNoFileName)
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return err
+	}
+	seqNoFile, err := data.OpenSeqNoFile(filename)
+	if err != nil {
+		return err
+	}
+	seqNoRecord, _, err := seqNoFile.ReadLogRecord(0)
+	if err != nil {
+		return err
+	}
+	seqNo, err := strconv.ParseUint(string(seqNoRecord.Value), 10, 64)
+	if err != nil {
+		return err
+	}
+	db.seqNo = seqNo
+	db.seqNoFileExist = true
+	return os.Remove(filename)
 }

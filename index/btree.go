@@ -63,6 +63,11 @@ func (bt *BTree) Size() int {
 	return bt.tree.Len()
 }
 
+// Close 关闭索引
+func (bt *BTree) Close() error {
+	return nil
+}
+
 // BTree 索引迭代器
 type btreeIterator struct {
 	curIndex int

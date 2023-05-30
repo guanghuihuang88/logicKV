@@ -94,6 +94,11 @@ func (bpt *BPlusTree) Size() int {
 	return size
 }
 
+// Close 关闭索引
+func (bpt *BPlusTree) Close() error {
+	return bpt.tree.Close()
+}
+
 // BPlusTree 索引迭代器
 type bptIterator struct {
 	tx        *bbolt.Tx
@@ -158,5 +163,5 @@ func (iter *bptIterator) Value() *data.LogRecordPos {
 
 // Close 关闭迭代器，释放资源
 func (iter *bptIterator) Close() {
-	_ = iter.tx.Commit()
+	_ = iter.tx.Rollback()
 }
