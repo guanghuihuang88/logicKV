@@ -2,6 +2,7 @@ package logic_kv
 
 import (
 	"github.com/guanghuihuang88/logicKV/data"
+	"github.com/guanghuihuang88/logicKV/utils"
 	"io"
 	"os"
 	"path"
@@ -22,10 +23,33 @@ func (db *DB) Merge() error {
 		return nil
 	}
 	db.mu.Lock()
-	// 若正在进行 merge
+
+	// 如果 merge 正在进行，则直接返回
 	if db.isMerging {
 		db.mu.Unlock()
 		return ErrMergeIsProgress
+	}
+
+	// 查看可以 merge 的数据量是否达到阈值
+	totalSize, err := utils.DirSize(db.options.DirPath)
+	if err != nil {
+		db.mu.Unlock()
+		return err
+	}
+	if float32(db.reclaimSize)/float32(totalSize) < db.options.DataFileMaergeRatio {
+		db.mu.Unlock()
+		return ErrMergeRatioUnreached
+	}
+
+	// 查看剩余磁盘空间是否容纳 merge 之后的数据量
+	avaliableDiskSize, err := utils.AvaliableDiskSize()
+	if err != nil {
+		db.mu.Unlock()
+		return err
+	}
+	if totalSize-db.reclaimSize > int64(avaliableDiskSize) {
+		db.mu.Unlock()
+		return ErrAvaliableDiskSizeNotEnough
 	}
 
 	db.isMerging = true
@@ -183,6 +207,9 @@ func (db *DB) loadMergeFiles() error {
 			isMergeFinished = true
 		}
 		if entry.Name() == data.SeqNoFileName {
+			continue
+		}
+		if entry.Name() == fileLockName {
 			continue
 		}
 		mergeFinishedNames = append(mergeFinishedNames, entry.Name())

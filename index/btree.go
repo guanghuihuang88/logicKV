@@ -20,12 +20,15 @@ func NewBTree() *BTree {
 	}
 }
 
-func (bt *BTree) Put(key []byte, pos *data.LogRecordPos) bool {
+func (bt *BTree) Put(key []byte, pos *data.LogRecordPos) *data.LogRecordPos {
 	it := Item{Key: key, Pos: pos}
 	bt.lock.Lock()
-	bt.tree.ReplaceOrInsert(&it)
+	item := bt.tree.ReplaceOrInsert(&it)
 	bt.lock.Unlock()
-	return true
+	if item == nil {
+		return nil
+	}
+	return item.(*Item).Pos
 }
 
 func (bt *BTree) Get(key []byte) *data.LogRecordPos {
@@ -37,15 +40,15 @@ func (bt *BTree) Get(key []byte) *data.LogRecordPos {
 	return btreeItem.(*Item).Pos
 }
 
-func (bt *BTree) Delete(key []byte) bool {
+func (bt *BTree) Delete(key []byte) (*data.LogRecordPos, bool) {
 	it := Item{Key: key}
 	bt.lock.Lock()
 	oldItem := bt.tree.Delete(&it)
 	bt.lock.Unlock()
 	if oldItem == nil {
-		return false
+		return nil, false
 	}
-	return true
+	return oldItem.(*Item).Pos, true
 }
 
 // Iterator 返回迭代器
