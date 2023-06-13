@@ -491,6 +491,14 @@ func (db *DB) Stat() *Stat {
 	}
 }
 
+// Backup 备份数据库
+func (db *DB) Backup(dir string) error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	return utils.CopyDir(db.options.DirPath, dir, []string{fileLockName})
+}
+
 func (db *DB) Close() error {
 	defer func() {
 		if err := db.fileLock.Unlock(); err != nil {
