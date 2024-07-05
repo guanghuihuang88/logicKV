@@ -59,7 +59,7 @@ type Item struct {
 }
 
 /*
-	这里Less方法中参数bi的类型是btree.Item，而不是Item，是因为
+	这里Less方法中参数bi的类型是btree.Item，btree.Item是接口，这意味着任何实现了btree.Item接口的结构体，都能存入btree
 */
 func (ai *Item) Less(bi btree.Item) bool {
 	return bytes.Compare(ai.Key, bi.(*Item).Key) == -1

@@ -188,7 +188,7 @@ func (db *DB) loadMergeFiles() error {
 
 	// merge 目录不存在则直接返回
 	if _, err := os.Stat(mergePath); os.IsNotExist(err) {
-		return err
+		return nil
 	}
 	defer func() {
 		os.RemoveAll(mergePath)
@@ -267,7 +267,7 @@ func (db *DB) getNonMergeFileId(dirPath string) (uint32, error) {
 func (db *DB) loadIndexFromHintFile() error {
 	hintFilePath := filepath.Join(db.options.DirPath, data.HintFileName)
 	if _, err := os.Stat(hintFilePath); os.IsNotExist(err) {
-		return err
+		return nil
 	}
 
 	// 打开 hint 索引文件
@@ -278,6 +278,7 @@ func (db *DB) loadIndexFromHintFile() error {
 
 	var offset int64 = 0
 	for {
+		// 读一条hint文件记录，value记录了key的实际位置
 		logRecord, size, err := hintFile.ReadLogRecord(offset)
 		if err != nil {
 			if err == io.EOF {

@@ -302,11 +302,13 @@ func (db *DB) setActiveDataFile() error {
 
 // 从磁盘中加载数据文件
 func (db *DB) loadDataFile() error {
+	// 打开DB实例目录
 	dirEntries, err := os.ReadDir(db.options.DirPath)
 	if err != nil {
 		return err
 	}
 
+	// 将目录中所有.data文件的文件id添加到[]int数组
 	var fileIds []int
 	for _, entry := range dirEntries {
 		if strings.HasSuffix(entry.Name(), data.DataFileNameSuffix) {
@@ -324,6 +326,7 @@ func (db *DB) loadDataFile() error {
 	sort.Ints(fileIds)
 	db.fileIds = fileIds
 
+	// 遍历文件id，为每个文件id实例化一个dataFile对象，添加到历史文件列表中，其中最后一个文件id，标记为活跃文件
 	for index, fileId := range fileIds {
 		ioType := fio.StandardFIO
 		if db.options.MMapAtStartup {
@@ -364,14 +367,16 @@ func (db *DB) loadIndexFromDataFiles() error {
 
 	updateIndex := func(key []byte, typ data.LogRecordType, pos *data.LogRecordPos) {
 		var oldPos *data.LogRecordPos
+
+		// 若待更新记录类型是墓碑记录，则删除索引中对应的数据
 		if typ == data.LogRecordDeleted {
 			oldPos, _ = db.index.Delete(key)
-			db.reclaimSize += int64(pos.Size)
+			db.reclaimSize += int64(pos.Size) // 更新无效记录总大小
 		} else {
-			oldPos = db.index.Put(key, pos)
+			oldPos = db.index.Put(key, pos) // 若待更新记录没有旧记录，则oldPos = nil
 		}
 		if oldPos != nil {
-			db.reclaimSize += int64(pos.Size)
+			db.reclaimSize += int64(pos.Size) // 若待更新记录有旧记录，则更新无效记录总大小
 		}
 	}
 
