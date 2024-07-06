@@ -153,7 +153,7 @@ func TestDB_Get(t *testing.T) {
 	assert.NotNil(t, val7)
 	assert.Equal(t, val3, val7)
 
-	val8, err := db.Get(utils.GetTestKey(33))
+	val8, err := db2.Get(utils.GetTestKey(33))
 	assert.Equal(t, 0, len(val8))
 	assert.Equal(t, ErrKeyNotFound, err)
 }
@@ -299,88 +299,89 @@ func TestDB_Sync(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestDB_NewIterator(t *testing.T) {
+func TestDB_FileLock(t *testing.T) {
 	opts := DefaultOptions
-	dir, _ := os.MkdirTemp("", "bitcask-go-iterator-1")
+	dir, _ := os.MkdirTemp("", "bitcask-go-filelock")
 	opts.DirPath = dir
 	db, err := Open(opts)
 	defer destroyDB(db)
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
-	iterator := db.Iterator(DefaultIteratorOptions)
-	assert.NotNil(t, iterator)
-	assert.Equal(t, false, iterator.Valid())
+	_, err = Open(opts)
+	assert.Equal(t, ErrDatabaseIsUsing, err)
+
+	err = db.Close()
+	assert.Nil(t, err)
+
+	db2, err := Open(opts)
+	assert.Nil(t, err)
+	assert.NotNil(t, db2)
+	err = db2.Close()
+	assert.Nil(t, err)
 }
 
-func TestDB_Iterator_One_Value(t *testing.T) {
+func TestDB_Stat(t *testing.T) {
 	opts := DefaultOptions
-	dir, _ := os.MkdirTemp("", "bitcask-go-iterator-2")
+	dir, _ := os.MkdirTemp("", "bitcask-go-stat")
 	opts.DirPath = dir
 	db, err := Open(opts)
 	defer destroyDB(db)
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
-	err = db.Put(utils.GetTestKey(10), utils.GetTestKey(10))
-	assert.Nil(t, err)
+	for i := 100; i < 10000; i++ {
+		err := db.Put(utils.GetTestKey(i), utils.RandomValue(128))
+		assert.Nil(t, err)
+	}
+	for i := 100; i < 1000; i++ {
+		err := db.Delete(utils.GetTestKey(i))
+		assert.Nil(t, err)
+	}
+	for i := 2000; i < 5000; i++ {
+		err := db.Put(utils.GetTestKey(i), utils.RandomValue(128))
+		assert.Nil(t, err)
+	}
 
-	iterator := db.Iterator(DefaultIteratorOptions)
-	assert.NotNil(t, iterator)
-	assert.Equal(t, true, iterator.Valid())
-	assert.Equal(t, utils.GetTestKey(10), iterator.Key())
-	val, err := iterator.Value()
-	assert.Nil(t, err)
-	assert.Equal(t, utils.GetTestKey(10), val)
+	stat := db.Stat()
+	assert.NotNil(t, stat)
 }
 
-func TestDB_Iterator_Multi_Values(t *testing.T) {
+func TestDB_Backup(t *testing.T) {
 	opts := DefaultOptions
-	dir, _ := os.MkdirTemp("", "bitcask-go-iterator-3")
+	dir, _ := os.MkdirTemp("", "bitcask-go-backup")
 	opts.DirPath = dir
 	db, err := Open(opts)
 	defer destroyDB(db)
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
-	err = db.Put([]byte("annde"), utils.RandomValue(10))
-	assert.Nil(t, err)
-	err = db.Put([]byte("cnedc"), utils.RandomValue(10))
-	assert.Nil(t, err)
-	err = db.Put([]byte("aeeue"), utils.RandomValue(10))
-	assert.Nil(t, err)
-	err = db.Put([]byte("esnue"), utils.RandomValue(10))
-	assert.Nil(t, err)
-	err = db.Put([]byte("bnede"), utils.RandomValue(10))
-	assert.Nil(t, err)
-
-	// 正向迭代
-	iter1 := db.Iterator(DefaultIteratorOptions)
-	for iter1.Rewind(); iter1.Valid(); iter1.Next() {
-		assert.NotNil(t, iter1.Key())
-	}
-	iter1.Rewind()
-	for iter1.Seek([]byte("c")); iter1.Valid(); iter1.Next() {
-		assert.NotNil(t, iter1.Key())
+	for i := 1; i < 1000000; i++ {
+		err := db.Put(utils.GetTestKey(i), utils.RandomValue(128))
+		assert.Nil(t, err)
 	}
 
-	// 反向迭代
-	iterOpts1 := DefaultIteratorOptions
-	iterOpts1.Reverse = true
-	iter2 := db.Iterator(iterOpts1)
-	for iter2.Rewind(); iter2.Valid(); iter2.Next() {
-		assert.NotNil(t, iter2.Key())
-	}
-	iter2.Rewind()
-	for iter2.Seek([]byte("c")); iter2.Valid(); iter2.Next() {
-		assert.NotNil(t, iter2.Key())
-	}
+	backupDir, _ := os.MkdirTemp("", "bitcask-go-backup-test")
+	err = db.Backup(backupDir)
+	assert.Nil(t, err)
 
-	// 指定了 prefix
-	iterOpts2 := DefaultIteratorOptions
-	iterOpts2.Prefix = []byte("aee")
-	iter3 := db.Iterator(iterOpts2)
-	for iter3.Rewind(); iter3.Valid(); iter3.Next() {
-		assert.NotNil(t, iter3.Key())
-	}
+	opts1 := DefaultOptions
+	opts1.DirPath = backupDir
+	db2, err := Open(opts1)
+	defer destroyDB(db2)
+	assert.Nil(t, err)
+	assert.NotNil(t, db2)
 }
+
+//func TestDB_OpenMMap(t *testing.T) {
+//	opts := DefaultOptions
+//	opts.DirPath = "/tmp/bitcask-go"
+//	opts.MMapAtStartup = false
+//
+//	now := time.Now()
+//	db, err := Open(opts)
+//	t.Log("open time ", time.Since(now))
+//
+//	assert.Nil(t, err)
+//	assert.NotNil(t, db)
+//}

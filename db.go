@@ -162,7 +162,7 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 
 	logRecordPos := db.index.Get(key)
 	if logRecordPos == nil {
-		return nil, ErrKeyIsEmpty
+		return nil, ErrKeyNotFound
 	}
 
 	return db.getValueByPos(logRecordPos)
@@ -190,7 +190,7 @@ func (db *DB) getValueByPos(pos *data.LogRecordPos) ([]byte, error) {
 		return nil, ErrKeyIsEmpty
 	}
 
-	return logRecord.Key, nil
+	return logRecord.Value, nil
 }
 
 func (db *DB) Delete(key []byte) error {
