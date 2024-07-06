@@ -462,7 +462,7 @@ func checkOptions(options Options) error {
 	if options.DataFileSize <= 0 {
 		return errors.New("database data file size must greater than 0")
 	}
-	if options.DataFileMaergeRatio < 0 || options.DataFileMaergeRatio > 1 {
+	if options.DataFileMergeRatio < 0 || options.DataFileMergeRatio > 1 {
 		return errors.New("invaild merge ratio")
 	}
 	return nil

@@ -36,7 +36,7 @@ func (db *DB) Merge() error {
 		db.mu.Unlock()
 		return err
 	}
-	if float32(db.reclaimSize)/float32(totalSize) < db.options.DataFileMaergeRatio {
+	if float32(db.reclaimSize)/float32(totalSize) < db.options.DataFileMergeRatio {
 		db.mu.Unlock()
 		return ErrMergeRatioUnreached
 	}
@@ -115,36 +115,38 @@ func (db *DB) Merge() error {
 	}
 
 	// 遍历处理每一个数据文件
-	var offset int64 = 0
 	for _, dataFile := range mergeFiles {
-		record, n, err := dataFile.ReadLogRecord(offset)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		// 解析拿到实际的 key
-		realKey, _ := ParseLogRecordKey(record.Key)
-		recordPos := db.index.Get(realKey)
-
-		// 和内存中索引位置进行比较，有效则重写
-		if recordPos != nil &&
-			dataFile.FileId == recordPos.FileId &&
-			offset == recordPos.Offset {
-			// 清除事务标记
-			record.Key = LogRecordKeyWithSeq(realKey, nonTxnSeqNo)
-			logRecordPos, err := mergeDB.appendLogRecord(record)
+		var offset int64 = 0
+		for {
+			record, n, err := dataFile.ReadLogRecord(offset)
 			if err != nil {
+				if err == io.EOF {
+					break
+				}
 				return err
 			}
-			// 将当前位置索引写到 Hint 文件中
-			if err = hintFile.WriteHintRecord(realKey, logRecordPos); err != nil {
-				return err
+			// 解析拿到实际的 key
+			realKey, _ := ParseLogRecordKey(record.Key)
+			recordPos := db.index.Get(realKey)
+
+			// 和内存中索引位置进行比较，有效则重写
+			if recordPos != nil &&
+				dataFile.FileId == recordPos.FileId &&
+				offset == recordPos.Offset {
+				// 清除事务标记
+				record.Key = LogRecordKeyWithSeq(realKey, nonTxnSeqNo)
+				logRecordPos, err := mergeDB.appendLogRecord(record)
+				if err != nil {
+					return err
+				}
+				// 将当前位置索引写到 Hint 文件中
+				if err = hintFile.WriteHintRecord(realKey, logRecordPos); err != nil {
+					return err
+				}
 			}
+			// 增加 offset
+			offset += n
 		}
-		// 增加 offset
-		offset += n
 	}
 
 	// 保证持久化
