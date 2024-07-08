@@ -469,8 +469,11 @@ func checkOptions(options Options) error {
 }
 
 func (db *DB) Sync() error {
-	db.mu.RLock()
-	db.mu.RUnlock()
+	if db.activeFile == nil {
+		return nil
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	return db.activeFile.Sync()
 }
 

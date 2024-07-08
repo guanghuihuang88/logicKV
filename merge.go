@@ -18,19 +18,18 @@ const (
 
 // Merge 清理无效数据 生成 hint 文件
 func (db *DB) Merge() error {
-	// 若数据库为空
+	// 如果数据库为空，则直接返回
 	if db.activeFile == nil {
 		return nil
 	}
 	db.mu.Lock()
-
-	// 如果 merge 正在进行，则直接返回
+	// 如果 merge 正在进行当中，则直接返回
 	if db.isMerging {
 		db.mu.Unlock()
 		return ErrMergeIsProgress
 	}
 
-	// 查看可以 merge 的数据量是否达到阈值
+	// 查看可以 merge 的数据量是否达到了阈值
 	totalSize, err := utils.DirSize(db.options.DirPath)
 	if err != nil {
 		db.mu.Unlock()
@@ -62,14 +61,12 @@ func (db *DB) Merge() error {
 		db.mu.Unlock()
 		return err
 	}
-
-	// 将当前活跃文件转换为旧文件
+	// 将当前活跃文件转换为旧的数据文件
 	db.olderFiles[db.activeFile.FileId] = db.activeFile
-
-	// 创建新的活跃文件
+	// 打开新的活跃文件
 	if err := db.setActiveDataFile(); err != nil {
 		db.mu.Unlock()
-		return err
+		return nil
 	}
 	// 记录最近没有参与 merge 的文件 id
 	nonMergeFileId := db.activeFile.FileId
@@ -81,40 +78,37 @@ func (db *DB) Merge() error {
 	}
 	db.mu.Unlock()
 
-	// 待 merge 的文件从小到大排序，依次 merge
+	//	待 merge 的文件从小到大进行排序，依次 merge
 	sort.Slice(mergeFiles, func(i, j int) bool {
 		return mergeFiles[i].FileId < mergeFiles[j].FileId
 	})
 
 	mergePath := db.getMergePath()
-	// 如果目录存在，说明发生过 merge，将其删掉
+	// 如果目录存在，说明发生过 merge，将其删除掉
 	if _, err := os.Stat(mergePath); err == nil {
 		if err := os.RemoveAll(mergePath); err != nil {
 			return err
 		}
 	}
-
-	// 新建一个 merge path 目录
+	// 新建一个 merge path 的目录
 	if err := os.MkdirAll(mergePath, os.ModePerm); err != nil {
 		return err
 	}
-
 	// 打开一个新的临时 bitcask 实例
 	mergeOptions := db.options
-	mergeOptions.SyncWrites = false
 	mergeOptions.DirPath = mergePath
+	mergeOptions.SyncWrites = false
 	mergeDB, err := Open(mergeOptions)
 	if err != nil {
 		return err
 	}
 
-	// 打开 Hint 文件存储索引
+	// 打开 hint 文件存储索引
 	hintFile, err := data.OpenHintFile(mergePath)
 	if err != nil {
 		return err
 	}
-
-	// 遍历处理每一个数据文件
+	// 遍历处理每个数据文件
 	for _, dataFile := range mergeFiles {
 		var offset int64 = 0
 		for {
@@ -149,7 +143,7 @@ func (db *DB) Merge() error {
 		}
 	}
 
-	// 保证持久化
+	// sync 保证持久化
 	if err := hintFile.Sync(); err != nil {
 		return err
 	}
@@ -162,16 +156,14 @@ func (db *DB) Merge() error {
 	if err != nil {
 		return err
 	}
-	mergeFinishedRecord := &data.LogRecord{
+	mergeFinRecord := &data.LogRecord{
 		Key:   []byte(mergeFinishedKey),
 		Value: []byte(strconv.Itoa(int(nonMergeFileId))),
 	}
-	encodeLogRecord, _ := data.EncodeLogRecord(mergeFinishedRecord)
-
-	if err := mergeFinishedFile.Write(encodeLogRecord); err != nil {
+	encRecord, _ := data.EncodeLogRecord(mergeFinRecord)
+	if err := mergeFinishedFile.Write(encRecord); err != nil {
 		return err
 	}
-
 	if err := mergeFinishedFile.Sync(); err != nil {
 		return err
 	}
